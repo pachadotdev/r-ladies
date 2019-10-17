@@ -1,0 +1,188 @@
+---
+title: "Bases de Datos con dplyr"
+author: "Pachá"
+date: "10/17/2019"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+# Prerequisitos
+
+Nos enfocaremos en cómo usar los paquetes **dplyr** y **RPostgreSQL**. Ilustraremos las ideas clave con la base de datos de *tradestatistics.io*.
+
+```{r setup, message = FALSE, cache = FALSE}
+# Recuerda crear el archivo .Rprofile a partir de .Rprofile.modelo
+# Allí debes ingresar las credenciales para conectarse a la base de datos
+
+# paquetes ----
+
+library(RPostgres)
+library(dplyr)
+
+# conexion ----
+
+con <- RPostgreSQL::dbConnect(
+  drv = dbDriver("PostgreSQL"),
+  dbname = parametros[["base"]],
+  host = parametros[["host"]],
+  user = parametros[["user"]],
+  password = parametros[["pass"]]
+)
+```
+
+Ahora crearemos algunas funciones para evitar el exceso de repetición. Estas funciones nos darán atajos a las tablas en la base de datos.
+
+```{r}
+# año - informante
+yr <- function() { tbl(con, "hs07_yr") }
+
+# año - informante - socio
+yrp <- function() { tbl(con, "hs07_yrp") }
+
+# año - informante - producto
+yrc <- function() { tbl(con, "hs07_yrc") }
+
+# año - informante - socio - producto
+yrpc <- function() { tbl(con, "hs07_yrpc") }
+
+# codigo - nombre producto
+nom_productos <- function() { tbl(con, "attributes_products_shortnames") }
+```
+
+# Comercio agregado
+
+¿Cuánto exporta Perú por año?
+
+```{r}
+yr()
+
+yr() %>% 
+  filter(reporter_iso == "per") %>% 
+  group_by(year) %>% 
+  select(year, export_value_usd)
+```
+
+¿A cuántos países exporta Perú por año?
+
+```{r}
+yrp()
+
+yrp() %>% 
+  filter(reporter_iso == "per", export_value_usd > 0) %>% 
+  group_by(year) %>% 
+  count()
+```
+
+# Comercio detallado
+
+¿Cuántos productos exporta Perú por año?
+
+```{r}
+yrc()
+
+yrc() %>% 
+  filter(reporter_iso == "per", export_value_usd > 0) %>% 
+  group_by(year) %>% 
+  count()
+```
+
+¿Cuál es el producto más exportado por Perú por año? ¿Y el más importado?
+
+```{r}
+yrc()
+
+yrc() %>% 
+  filter(reporter_iso == "per") %>% 
+  select(year, product_code, export_value_usd) %>% 
+  group_by(year) %>% 
+  filter(export_value_usd == max(export_value_usd, na.rm = T))
+
+yrc() %>% 
+  filter(reporter_iso == "per") %>% 
+  select(year, product_code, import_value_usd) %>% 
+  group_by(year) %>% 
+  filter(import_value_usd == max(import_value_usd, na.rm = T))
+```
+
+Lo anterior no dice mucho, si lo uno con la tabla de nombres de productos es más informativo.
+
+```{r}
+yrc() %>% 
+  filter(reporter_iso == "per") %>% 
+  select(year, product_code, export_value_usd) %>% 
+  group_by(year) %>% 
+  filter(export_value_usd == max(export_value_usd, na.rm = T)) %>% 
+  left_join(nom_productos()) %>% 
+  select(year, matches("product"), everything())
+
+yrc() %>% 
+  filter(reporter_iso == "per") %>% 
+  select(year, product_code, import_value_usd) %>% 
+  group_by(year) %>% 
+  filter(import_value_usd == max(import_value_usd, na.rm = T)) %>% 
+  left_join(nom_productos()) %>% 
+  select(year, matches("product"), everything())
+```
+
+Ahora quiero crear una tabla con lo más exportado y lo más importado por Perú en un año.
+
+```{r}
+yrc() %>% 
+  filter(reporter_iso == "per") %>% 
+  select(year, product_code, export_value_usd) %>% 
+  group_by(year) %>% 
+  filter(export_value_usd == max(export_value_usd, na.rm = T)) %>% 
+  left_join(nom_productos()) %>% 
+  select(year, product_shortname_english, everything()) %>% 
+  
+  left_join(
+    yrc() %>% 
+      filter(reporter_iso == "per") %>% 
+      select(year, product_code, import_value_usd) %>% 
+      group_by(year) %>% 
+      filter(import_value_usd == max(import_value_usd, na.rm = T)) %>% 
+      left_join(nom_productos()) %>% 
+      select(year, product_shortname_english, everything()),
+    by = "year"
+  ) %>% 
+  
+  rename(
+    top_export_name = product_shortname_english.x,
+    top_export_code = product_code.x,
+    top_import_name = product_shortname_english.y,
+    top_import_code = product_code.y
+  )
+```
+
+¿Cuáles son los productos que más se exportan de Perú a Chile? ¿Y los más importados?
+
+```{r}
+yrpc() %>% 
+  filter(reporter_iso == "per", partner_iso == "chl") %>% 
+  select(year, product_code, export_value_usd) %>% 
+  group_by(year) %>% 
+  filter(export_value_usd == max(export_value_usd, na.rm = T)) %>% 
+  left_join(nom_productos()) %>% 
+  select(year, product_shortname_english, everything()) %>% 
+  
+  left_join(
+    yrc() %>% 
+      filter(reporter_iso == "per") %>% 
+      select(year, product_code, import_value_usd) %>% 
+      group_by(year) %>% 
+      filter(import_value_usd == max(import_value_usd, na.rm = T)) %>% 
+      left_join(nom_productos()) %>% 
+      select(year, product_shortname_english, everything()),
+    by = "year"
+  ) %>% 
+  
+  rename(
+    top_export_name = product_shortname_english.x,
+    top_export_code = product_code.x,
+    top_import_name = product_shortname_english.y,
+    top_import_code = product_code.y
+  )
+```
