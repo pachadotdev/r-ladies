@@ -8,6 +8,6 @@ Contempla los siguiente tópicos
 * PostgreSQL
 * Uso de SQL a través de los paquetes RPostgreSQL + dplyr
 * Creación de APIs con plumber
-* Visualización usando api.tradestatistics.io + shiny + highcharts
+* Visualización usando api.tradestatistics.io + shiny + highcharter
 
 Licencia Creative Commons Atribución - No Comercial 4.0 
