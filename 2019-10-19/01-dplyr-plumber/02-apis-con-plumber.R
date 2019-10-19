@@ -4,7 +4,6 @@ library(dplyr)
 library(stringr)
 library(glue)
 library(RPostgreSQL)
-library(tradestatistics)
 
 # conexion a bbdd ----
 
@@ -15,6 +14,10 @@ con <- RPostgreSQL::dbConnect(
   user = parametros[["user"]],
   password = parametros[["pass"]]
 )
+
+# comunidades ----
+
+load("ots_communities.rda")
 
 # limpiar inputs ----
 
@@ -54,6 +57,16 @@ function(y = NULL, r = NULL, p = NULL) {
 
   if (!y >= min_year | !y <= max_year) {
     return("El anio especificado no es valido, mira la documentacion en tradestatistics.io")
+    stop()
+  }
+  
+  if (nchar(r) != 3) {
+    return("El codigo ISO de origen especificado no es valido, mira la documentacion en tradestatistics.io")
+    stop()
+  }
+  
+  if (nchar(p) != 3) {
+    return("El codigo ISO de destino especificado no es valido, mira la documentacion en tradestatistics.io")
     stop()
   }
   
