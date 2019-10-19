@@ -1,16 +1,14 @@
 # Packages ----------------------------------------------------------------
 
 library(shiny)
-library(shinyjs)
 library(dplyr)
-library(tradestatistics)
 library(highcharter)
+library(tradestatistics)
 
 # URLs --------------------------------------------------------------------
 
 # base_url <- "http://localhost:8080"
 base_url <- "https://api.tradestatistics.io"
-site_url <- "shiny.tradestatistics.io"
 
 # Tables ------------------------------------------------------------------
 
