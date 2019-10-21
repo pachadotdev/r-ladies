@@ -3,33 +3,33 @@
 shinyServer(
   function(input, output, session) {
     # Input -------------------------------------------------------------------
-
+    
     y <- reactive({
       input$y
     })
-
+    
     r_iso <- reactive({
       input$r
     })
-
+    
     r_name <- reactive({
       reporters_to_display %>%
         filter(available_reporters_iso == input$r) %>%
         select(available_reporters_names) %>%
         as.character()
     })
-
+    
     p_iso <- reactive({
       input$p
     })
-
+    
     p_name <- reactive({
       reporters_to_display %>%
         filter(available_reporters_iso == input$p) %>%
         select(available_reporters_names) %>%
         as.character()
     })
-
+    
     table_aggregated <- reactive({
       if (p_iso() == "all") {
         "yr"
@@ -37,7 +37,7 @@ shinyServer(
         "yrp"
       }
     })
-
+    
     table_detailed <- reactive({
       if (p_iso() == "all") {
         "yrc"
@@ -45,9 +45,9 @@ shinyServer(
         "yrpc"
       }
     })
-
+    
     # Data --------------------------------------------------------------------
-
+    
     text_add_the <- reactive({
       if (substr(p_name(), 1, 6) == "United" | substr(p_name(), 1, 3) == "USA") {
         "the "
@@ -59,7 +59,7 @@ shinyServer(
     title <- eventReactive(input$go, {
       glue::glue("Exports of { text_add_the() } { r_name() } from { text_add_the() } { p_name() } in { y() }, grouped by product community")
     })
-
+    
     data_detailed <- eventReactive(input$go, {
       ots_create_tidy_data(
         years = y(),
@@ -82,7 +82,7 @@ shinyServer(
         summarise(export_value_usd = sum(export_value_usd, na.rm = T)) %>% 
         ungroup()
     })
-
+    
     exports_title <- eventReactive(input$go, {
       switch(
         table_detailed(),
@@ -115,22 +115,22 @@ shinyServer(
         hc_title(text = exports_title()) %>% 
         hc_exporting(enabled = TRUE, buttons = list(contextButton = list(menuItems = hc_export_menu)))
     })
-
+    
     # Output ------------------------------------------------------------------
-
+    
     output$exports_treemap_detailed <- renderHighchart({
       exports_treemap_detailed()
     })
-
+    
     # Bookmarking -------------------------------------------------------------
-
+    
     observe({
       # Trigger this observer every time an input changes
       # strip shiny related URL parameters
       reactiveValuesToList(input)
       session$doBookmark()
     })
-
+    
     onBookmarked(function(url) {
       updateQueryString(url)
     })

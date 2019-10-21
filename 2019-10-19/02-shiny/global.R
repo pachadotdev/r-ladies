@@ -2,13 +2,14 @@
 
 library(shiny)
 library(dplyr)
-library(highcharter)
 library(tradestatistics)
+library(highcharter)
 
 # URLs --------------------------------------------------------------------
 
 # base_url <- "http://localhost:8080"
 base_url <- "https://api.tradestatistics.io"
+site_url <- "shiny.tradestatistics.io"
 
 # Tables ------------------------------------------------------------------
 
@@ -52,15 +53,15 @@ enableBookmarking(store = "url")
 
 hc_export_menu <- list(
   list(text="Download PNG image",
-       onclick=JS("function () {
+       onclick=JS("function () { 
                   this.exportChart({ type: 'image/png' }); }")),
   list(text="Download JPEG image",
-       onclick=JS("function () {
+       onclick=JS("function () { 
                   this.exportChart({ type: 'image/jpeg' }); }")),
   list(text="Download SVG vector image",
-       onclick=JS("function () {
+       onclick=JS("function () { 
                   this.exportChart({ type: 'image/svg+xml' }); }")),
   list(text="Download PDF document",
-       onclick=JS("function () {
+       onclick=JS("function () { 
                   this.exportChart({ type: 'application/pdf' }); }"))
 )

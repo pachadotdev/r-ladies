@@ -1,5 +1,5 @@
 ---
-title: "Bases de Datos con dplyr"
+title: "tradestatistics + dplyr"
 author: "Pachá"
 date: "10/17/2019"
 output: html_document
@@ -13,78 +13,67 @@ knitr::opts_chunk$set(echo = TRUE)
 
 Nos enfocaremos en cómo usar los paquetes **dplyr** y **RPostgreSQL**. Ilustraremos las ideas clave con la base de datos de *tradestatistics.io*.
 
-```{r setup, message = FALSE, cache = FALSE}
-# Recuerda crear el archivo .Rprofile a partir de .Rprofile.modelo
-# Allí debes ingresar las credenciales para conectarse a la base de datos
-
+```{r, message = FALSE, cache = FALSE}
 # paquetes ----
-
-library(RPostgres)
 library(dplyr)
-
-# conexion ----
-
-con <- RPostgreSQL::dbConnect(
-  drv = dbDriver("PostgreSQL"),
-  dbname = parametros[["base"]],
-  host = parametros[["host"]],
-  user = parametros[["user"]],
-  password = parametros[["pass"]]
-)
-```
-
-Ahora crearemos algunas funciones para evitar el exceso de repetición. Estas funciones nos darán atajos a las tablas en la base de datos.
-
-```{r}
-# año - informante
-yr <- function() { tbl(con, "hs07_yr") }
-
-# año - informante - socio
-yrp <- function() { tbl(con, "hs07_yrp") }
-
-# año - informante - producto
-yrc <- function() { tbl(con, "hs07_yrc") }
-
-# año - informante - socio - producto
-yrpc <- function() { tbl(con, "hs07_yrpc") }
-
-# codigo - nombre producto
-nom_productos <- function() { tbl(con, "attributes_products_shortnames") }
+library(tradestatistics)
 ```
 
 # Comercio agregado
 
-¿Cuánto exporta Perú por año?
+¿Cuánto exporta Perú por año? Para esto conviene ver la tabla YR (*Y*ear - *R*eporter) directamente.
 
 ```{r}
-yr()
+yr_rda <- "yr.rda"
 
-yr() %>% 
-  filter(reporter_iso == "per") %>% 
-  group_by(year) %>% 
-  select(year, export_value_usd)
+if (!file.exists(yr_rda)) {
+  yr <- ots_create_tidy_data(years = 2000:2018, reporters = "per", table = "yr")
+  save(yr, file =  yr_rda, compress = "xz")
+} else {
+  load(yr_rda)
+}
+
+yr
 ```
 
-¿A cuántos países exporta Perú por año?
+¿A cuántos países exporta Perú por año? Ahora vemos una tabla mas desagregada, YRP (*Y*ear - *R*eporter - *P*artner)
 
 ```{r}
-yrp()
+yrp_rda <- "yrp.rda"
 
-yrp() %>% 
-  filter(reporter_iso == "per", export_value_usd > 0) %>% 
+if (!file.exists(yrp_rda)) {
+  yrp <- ots_create_tidy_data(years = 2000:2018, reporters = "per", partners = "all", table = "yrp")
+  save(yrp, file =  yrp_rda, compress = "xz")
+} else {
+  load(yrp_rda)
+}
+
+yrp
+
+yrp %>% 
+  filter(export_value_usd > 0) %>% 
   group_by(year) %>% 
   count()
 ```
 
 # Comercio detallado
 
-¿Cuántos productos exporta Perú por año?
+¿Cuántos productos exporta Perú por año? Pasamos a una tabla aún más detallada YRC (*Y*ear - *R*eporter - product *C*ode)
 
 ```{r}
-yrc()
+yrc_rda <- "yrc.rda"
 
-yrc() %>% 
-  filter(reporter_iso == "per", export_value_usd > 0) %>% 
+if (!file.exists(yrc_rda)) {
+  yrc <- ots_create_tidy_data(years = 2000:2018, reporters = "per", table = "yrc")
+  save(yrc, file = yrc_rda, compress = "xz")
+} else {
+  load(yrc_rda)
+}
+
+yrc
+
+yrc %>% 
+  filter(export_value_usd > 0) %>% 
   group_by(year) %>% 
   count()
 ```
@@ -92,97 +81,68 @@ yrc() %>%
 ¿Cuál es el producto más exportado por Perú por año? ¿Y el más importado?
 
 ```{r}
-yrc()
-
-yrc() %>% 
-  filter(reporter_iso == "per") %>% 
-  select(year, product_code, export_value_usd) %>% 
+yrc %>% 
+  select(year, product_fullname_english, export_value_usd) %>% 
   group_by(year) %>% 
   filter(export_value_usd == max(export_value_usd, na.rm = T))
 
-yrc() %>% 
-  filter(reporter_iso == "per") %>% 
-  select(year, product_code, import_value_usd) %>% 
+yrc %>% 
+  select(year, product_fullname_english, import_value_usd) %>% 
   group_by(year) %>% 
   filter(import_value_usd == max(import_value_usd, na.rm = T))
-```
-
-Lo anterior no dice mucho, si lo uno con la tabla de nombres de productos es más informativo.
-
-```{r}
-yrc() %>% 
-  filter(reporter_iso == "per") %>% 
-  select(year, product_code, export_value_usd) %>% 
-  group_by(year) %>% 
-  filter(export_value_usd == max(export_value_usd, na.rm = T)) %>% 
-  left_join(nom_productos()) %>% 
-  select(year, matches("product"), everything())
-
-yrc() %>% 
-  filter(reporter_iso == "per") %>% 
-  select(year, product_code, import_value_usd) %>% 
-  group_by(year) %>% 
-  filter(import_value_usd == max(import_value_usd, na.rm = T)) %>% 
-  left_join(nom_productos()) %>% 
-  select(year, matches("product"), everything())
 ```
 
 Ahora quiero crear una tabla con lo más exportado y lo más importado por Perú en un año.
 
 ```{r}
-yrc() %>% 
-  filter(reporter_iso == "per") %>% 
-  select(year, product_code, export_value_usd) %>% 
+yrc %>% 
+  select(year, product_fullname_english, export_value_usd) %>% 
   group_by(year) %>% 
   filter(export_value_usd == max(export_value_usd, na.rm = T)) %>% 
-  left_join(nom_productos()) %>% 
-  select(year, product_shortname_english, everything()) %>% 
-  
+
   left_join(
-    yrc() %>% 
-      filter(reporter_iso == "per") %>% 
-      select(year, product_code, import_value_usd) %>% 
+    yrc %>% 
+      select(year, product_fullname_english, import_value_usd) %>% 
       group_by(year) %>% 
-      filter(import_value_usd == max(import_value_usd, na.rm = T)) %>% 
-      left_join(nom_productos()) %>% 
-      select(year, product_shortname_english, everything()),
+      filter(import_value_usd == max(import_value_usd, na.rm = T)),
     by = "year"
   ) %>% 
-  
+    
   rename(
-    top_export_name = product_shortname_english.x,
-    top_export_code = product_code.x,
-    top_import_name = product_shortname_english.y,
-    top_import_code = product_code.y
+    top_export_name = product_fullname_english.x,
+    top_import_name = product_fullname_english.y
   )
 ```
 
-¿Cuáles son los productos que más se exportan de Perú a Chile? ¿Y los más importados?
+¿Cuáles son los productos que más se exportan de Perú a Chile? ¿Y los más importados? Ahora veo la más detallada de las tablas, YRPC (*Y*ear - *R*eporter - *P*artner - product *C*ode)
 
 ```{r}
-yrpc() %>% 
-  filter(reporter_iso == "per", partner_iso == "chl") %>% 
-  select(year, product_code, export_value_usd) %>% 
+yrpc_rda <- "yrpc.rda"
+
+if (!file.exists(yrpc_rda)) {
+  yrpc <- ots_create_tidy_data(years = 2000:2018, reporters = "per", partners = "chl")
+  save(yrpc, file = yrpc_rda, compress = "xz")
+} else {
+  load(yrpc_rda)
+}
+ 
+yrpc
+
+yrpc %>% 
+  select(year, product_fullname_english, export_value_usd) %>% 
   group_by(year) %>% 
   filter(export_value_usd == max(export_value_usd, na.rm = T)) %>% 
-  left_join(nom_productos()) %>% 
-  select(year, product_shortname_english, everything()) %>% 
-  
+
   left_join(
-    yrc() %>% 
-      filter(reporter_iso == "per") %>% 
-      select(year, product_code, import_value_usd) %>% 
+    yrpc %>% 
+      select(year, product_fullname_english, import_value_usd) %>% 
       group_by(year) %>% 
-      filter(import_value_usd == max(import_value_usd, na.rm = T)) %>% 
-      left_join(nom_productos()) %>% 
-      select(year, product_shortname_english, everything()),
+      filter(import_value_usd == max(import_value_usd, na.rm = T)),
     by = "year"
   ) %>% 
   
   rename(
-    top_export_name = product_shortname_english.x,
-    top_export_code = product_code.x,
-    top_import_name = product_shortname_english.y,
-    top_import_code = product_code.y
+    top_export_name = product_fullname_english.x,
+    top_import_name = product_fullname_english.y
   )
 ```

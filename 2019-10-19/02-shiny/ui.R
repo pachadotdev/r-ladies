@@ -44,10 +44,14 @@ shinyUI(
           id = "content",
           column(
             9,
-            style = "height:95vh",
+            style = "height:100vh",
             htmlOutput("title", container = tags$h2),
-            highchartOutput("exports_treemap_detailed", height = "100%")
+            highchartOutput("exports_treemap_detailed", height = "95%")
           )
+        ),
+        
+        tags$footer(
+          tags$link(rel = "shortcut icon", href = "img/favicon.ico")
         )
       )
     )
