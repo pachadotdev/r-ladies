@@ -214,15 +214,19 @@ ame_eu28_2
 
 # Dplyr + SQL
 
+Your turn
+
 ---
 
 # Creating your own API
+
+Your turn
 
 ---
 
 # Shiny apps
 
-**shiny.tradestatistics.io**
+Your turn
 
 ---
 
